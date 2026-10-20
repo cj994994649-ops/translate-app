@@ -344,6 +344,13 @@ def index():
     return render_template_string(HTML_PAGE)
 
 @app.route('/upload', methods=['POST'])
+def filename_check(name):
+    name = name.lower().strip()
+    if '.pptx' in name: return 'pptx'
+    if '.pdf' in name: return 'pdf'
+    return 'unknown'
+
+@app.route('/upload', methods=['POST'])
 def upload_file():
     if 'file' not in request.files:
         return "لم يتم رفع ملف", 400
@@ -354,7 +361,7 @@ def upload_file():
     task_id = str(uuid.uuid4())
     filename = task_id
 
-    if file.filename.lower().endswith('.pptx'):
+    if filename_check(file.filename) == 'pptx':
         filename += ".pptx"
         input_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         output_path = os.path.join(app.config['OUTPUT_FOLDER'], filename)
@@ -364,7 +371,7 @@ def upload_file():
         threading.Thread(target=translate_pptx, args=(input_path, output_path, task_id), daemon=True).start()
         return render_template_string(PROGRESS_PAGE, task_id=task_id, filename=filename)
 
-    elif file.filename.lower().endswith('.pdf'):
+    elif filename_check(file.filename) == 'pdf':
         filename += ".pdf"
         input_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         output_path = os.path.join(app.config['OUTPUT_FOLDER'], filename)

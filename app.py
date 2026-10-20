@@ -13,9 +13,11 @@ import uuid
 import datetime
 import json
 import threading
+import time
 
 try:
-    from deep_translator import MyMemoryTranslator
+    from googletrans import Translator
+    translator = Translator()
     TRANSLATOR_OK = True
 except Exception:
     TRANSLATOR_OK = False
@@ -66,17 +68,15 @@ def log_action(action, filename=""):
         elif action == "translate": stats["translated_files"] = stats.get("translated_files", 0) + 1
         elif action == "download": stats["downloads"] = stats.get("downloads", 0) + 1
         stats.setdefault("history", []).append({"time": timestamp, "action": action, "file": filename})
+        if len(stats["history"]) > 500: stats["history"] = stats["history"][-500:]
         save_stats(stats)
 
 def safe_translate(text):
     if not TRANSLATOR_OK: return "[المترجم غير متاح]"
     try:
-        # MyMemory أقصى حد للجملة 500 حرف، سنقسم النص إذا كان طويلاً
-        if len(text) > 500:
-            text = text[:500]
-        t = MyMemoryTranslator(source='en-US', target='ar-SA')
-        return t.translate(text)
-    except Exception as e:
+        res = translator.translate(text, dest='ar')
+        return res.text
+    except Exception:
         return "[فشل في الترجمة]"
 
 def translate_pptx(input_path, output_path, task_id):
@@ -117,7 +117,6 @@ def translate_pdf(input_path, output_path, task_id):
         arabic_font = 'Amiri' if FONT_REGISTERED else 'Helvetica'
         orig_style = ParagraphStyle('O', parent=styles['Normal'], fontName='Helvetica', fontSize=20, leading=26, alignment=0)
         ar_style = ParagraphStyle('A', parent=styles['Normal'], fontName=arabic_font, fontSize=20, leading=26, alignment=2)
-        
         story = []
         for i, page in enumerate(reader.pages):
             text = page.extract_text() or ""
@@ -154,7 +153,6 @@ def upload_file():
     task_id = str(uuid.uuid4())
     filename = task_id
     file_ext = file.filename.lower().split('.')[-1]
-
     if file_ext == 'pptx':
         filename += ".pptx"
         input_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)

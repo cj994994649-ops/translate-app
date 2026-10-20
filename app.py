@@ -18,8 +18,8 @@ import urllib.request
 
 # محاولة استيراد المترجم مع بديل احتياطي
 try:
-    from googletrans import Translator
-    translator = Translator()
+    from deep_translator import GoogleTranslator
+    translator = GoogleTranslator(source="auto", target="ar")
     TRANSLATOR_OK = True
 except Exception as e:
     print(f"⚠️ googletrans غير متاح: {e}")

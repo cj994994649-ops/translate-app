@@ -13,10 +13,11 @@ import uuid
 import datetime
 import json
 import threading
+import time
 
 try:
-    from deep_translator import GoogleTranslator
-    translator = GoogleTranslator(source="auto", target="ar")
+    from googletrans import Translator
+    translator = Translator()
     TRANSLATOR_OK = True
 except Exception as e:
     translator = None
@@ -72,11 +73,15 @@ def log_action(action, filename=""):
         save_stats(stats)
 
 def safe_translate(text):
-    if not TRANSLATOR_OK or not translator: return text
-    try:
-        return translator.translate(text)
-    except Exception:
-        return text
+    if not TRANSLATOR_OK or not translator: return "[المترجم غير متاح]"
+    for attempt in range(2):
+        try:
+            res = translator.translate(text, dest='ar')
+            if res and res.text:
+                return res.text
+        except Exception as e:
+            time.sleep(1)
+    return "[فشل في الترجمة]"
 
 def translate_pptx(input_path, output_path, task_id):
     try:
@@ -92,12 +97,19 @@ def translate_pptx(input_path, output_path, task_id):
                     for paragraph in shape.text_frame.paragraphs:
                         if paragraph.text.strip():
                             translated = safe_translate(paragraph.text)
+                            # إضافة الترجمة في فقرة جديدة
                             new_p = shape.text_frame.add_paragraph()
                             new_p.text = translated
-                            new_p.font.size = Pt(24)
+                            new_p.font.size = Pt(36) # حجم كبير
                             new_p.font.name = 'Arial'
                             new_p.alignment = PP_ALIGN.RIGHT
-                            new_p.space_before = Pt(10)
+                            new_p.space_before = Pt(12)
+                            # محاولة إضافة اتجاه RTL (لمكتبة python-pptx)
+                            try:
+                                pPr = new_p._p.get_or_add_pPr()
+                                pPr.set('rtl', '1')
+                            except Exception:
+                                pass
             progress_store[task_id] = int(((i + 1) / total) * 100)
         prs.save(output_path)
         progress_store[task_id] = 100
@@ -134,6 +146,7 @@ def translate_pdf(input_path, output_path, task_id):
     except Exception:
         progress_store[task_id] = -1
 
+# (نفس قوالب HTML السابقة، لم يتم تغييرها لضمان التصميم)
 HTML_PAGE = """<!DOCTYPE html><html dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>الريان للترجمة</title><link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet"><style>* { margin: 0; padding: 0; box-sizing: border-box; } body { font-family: 'Tajawal', sans-serif; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px; } .container { background: rgba(255,255,255,0.95); border-radius: 24px; padding: 50px 40px; max-width: 480px; width: 100%; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.4); border: 1px solid rgba(255,215,0,0.3); } .logo { font-size: 42px; font-weight: 700; color: #1a1a2e; margin-bottom: 10px; } .logo span { color: #d4af37; } .subtitle { font-size: 16px; color: #666; margin-bottom: 40px; } .upload-area { border: 2px dashed #d4af37; border-radius: 16px; padding: 40px 20px; margin-bottom: 30px; cursor: pointer; background: #fafafa; transition: 0.3s; } .upload-area:hover { background: #fff8e7; } .icon { font-size: 48px; margin-bottom: 10px; } .upload-btn { background: linear-gradient(135deg, #d4af37 0%, #b8960c 100%); color: white; padding: 16px 40px; border: none; border-radius: 12px; font-size: 18px; font-weight: 700; cursor: pointer; width: 100%; } .upload-btn:disabled { opacity: 0.5; cursor: not-allowed; } #loader { display: none; margin-top: 20px; color: #d4af37; font-size: 18px; font-weight: 700; }</style></head><body><div class="container"><div class="logo">الريان <span>للترجمة</span></div><p class="subtitle">جسرك نحو ملفات دقيقة ومحتوى احترافي</p><form id="uploadForm" action="/upload" method="post" enctype="multipart/form-data"><input type="file" name="file" id="fileInput" accept=".pptx,.pdf" required style="display:none;"><div class="upload-area" onclick="document.getElementById('fileInput').click();"><div class="icon">📄</div><p id="fileName">اسحب ملف PPTX أو PDF هنا أو انقر للتحميل</p></div><button type="submit" class="upload-btn" id="submitBtn" disabled>ابدأ الترجمة</button><div id="loader">⏳ جاري الترجمة... يرجى الانتظار</div></form></div><script>document.getElementById('fileInput').addEventListener('change', function() { if (this.files.length > 0) { document.getElementById('fileName').innerText = this.files[0].name; document.getElementById('submitBtn').disabled = false; } }); document.getElementById('uploadForm').onsubmit = function() { document.getElementById('loader').style.display = 'block'; document.getElementById('submitBtn').disabled = true; };</script></body></html>"""
 
 PROGRESS_PAGE = """<!DOCTYPE html><html dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>جاري الترجمة...</title><link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet"><style>body { font-family: 'Tajawal', sans-serif; background: #1a1a2e; color: #fff; display: flex; justify-content: center; align-items: center; min-height: 100vh; text-align: center; padding: 20px; } .container { background: rgba(255,255,255,0.1); padding: 50px 30px; border-radius: 24px; box-shadow: 0 20px 60px rgba(0,0,0,0.4); border: 1px solid #d4af37; max-width: 400px; width: 100%; } h1 { color: #d4af37; margin-bottom: 30px; font-size: 28px; } .progress-bar-container { width: 100%; background-color: #16213e; border-radius: 10px; overflow: hidden; margin-bottom: 20px; height: 30px; } .progress-bar { height: 100%; background: linear-gradient(90deg, #d4af37, #f1c40f); width: 0%; transition: width 0.5s ease; } .percentage { font-size: 36px; font-weight: bold; color: #d4af37; } .error { color: #e74c3c; font-size: 18px; margin-top: 20px; }</style></head><body><div class="container"><h1>⏳ جاري ترجمة الملف</h1><div class="progress-bar-container"><div class="progress-bar" id="progressBar"></div></div><div class="percentage" id="percentage">0%</div><div class="error" id="errorBox" style="display:none;">❌ حدث خطأ في الترجمة</div></div><script>function updateProgress() { fetch('/progress/{{ task_id }}').then(r => r.json()).then(data => { if (data.progress === -1) { document.getElementById('errorBox').style.display = 'block'; return; } document.getElementById('progressBar').style.width = data.progress + '%'; document.getElementById('percentage').innerText = data.progress + '%'; if (data.progress >= 100) { window.location.href = "/download/{{ filename }}"; } else { setTimeout(updateProgress, 1000); } }).catch(() => setTimeout(updateProgress, 2000)); } updateProgress();</script></body></html>"""

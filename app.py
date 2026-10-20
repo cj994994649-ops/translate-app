@@ -16,8 +16,7 @@ import threading
 import time
 
 try:
-    from googletrans import Translator
-    translator = Translator()
+    from deep_translator import MyMemoryTranslator
     TRANSLATOR_OK = True
 except Exception:
     TRANSLATOR_OK = False
@@ -68,16 +67,36 @@ def log_action(action, filename=""):
         elif action == "translate": stats["translated_files"] = stats.get("translated_files", 0) + 1
         elif action == "download": stats["downloads"] = stats.get("downloads", 0) + 1
         stats.setdefault("history", []).append({"time": timestamp, "action": action, "file": filename})
-        if len(stats["history"]) > 500: stats["history"] = stats["history"][-500:]
         save_stats(stats)
 
 def safe_translate(text):
     if not TRANSLATOR_OK: return "[المترجم غير متاح]"
-    try:
-        res = translator.translate(text, dest='ar')
-        return res.text
-    except Exception:
-        return "[فشل في الترجمة]"
+    
+    # تقسيم النص إلى أجزاء أقل من 500 بايت
+    chunks = []
+    current_chunk = ""
+    for word in text.split():
+        if len((current_chunk + " " + word).encode('utf-8')) < 450: # هامش أمان
+            current_chunk += " " + word if current_chunk else word
+        else:
+            if current_chunk:
+                chunks.append(current_chunk)
+            current_chunk = word
+    if current_chunk:
+        chunks.append(current_chunk)
+    
+    if not chunks:
+        return text
+        
+    translated_parts = []
+    for chunk in chunks:
+        try:
+            t = MyMemoryTranslator(source='en-US', target='ar-SA')
+            translated_parts.append(t.translate(chunk))
+        except Exception:
+            translated_parts.append(chunk) # إذا فشل جزء، نضع الأصل
+    
+    return " ".join(translated_parts)
 
 def translate_pptx(input_path, output_path, task_id):
     try:

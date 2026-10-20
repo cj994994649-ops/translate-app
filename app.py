@@ -16,8 +16,11 @@ import threading
 import time
 import requests
 
-# استخدام LibreTranslate API
-LIBRE_TRANSLATE_URL = "https://api.libretranslate.com/translate"
+# --- مفتاح DeepL الخاص بك ---
+DEEPL_API_KEY = "48f7080d-9ff3-4fd6-9b9d-bf532edc7342:fx"
+DEEPL_API_URL = "https://api-free.deepl.com/v2/translate"
+# ----------------------------
+
 TRANSLATOR_OK = True
 
 app = Flask(__name__)
@@ -71,19 +74,21 @@ def log_action(action, filename=""):
 def safe_translate(text):
     if not TRANSLATOR_OK: return "[المترجم غير متاح]"
     try:
-        payload = {
-            "q": text,
-            "source": "en",
-            "target": "ar",
-            "format": "text"
+        headers = {
+            "Authorization": f"DeepL-Auth-Key {DEEPL_API_KEY}",
+            "Content-Type": "application/json"
         }
-        response = requests.post(LIBRE_TRANSLATE_URL, json=payload, timeout=15)
+        data = {
+            "text": [text],
+            "target_lang": "AR"
+        }
+        response = requests.post(DEEPL_API_URL, headers=headers, json=data, timeout=20)
         if response.status_code == 200:
             result = response.json()
-            return result.get("translatedText", text)
-        else:
-            return "[فشل في الترجمة]"
-    except Exception as e:
+            if result.get("translations"):
+                return result["translations"][0]["text"]
+        return "[فشل في الترجمة]"
+    except Exception:
         return "[فشل في الترجمة]"
 
 def translate_pptx(input_path, output_path, task_id):
@@ -107,7 +112,6 @@ def translate_pptx(input_path, output_path, task_id):
                             new_p.alignment = PP_ALIGN.RIGHT
                             new_p.space_before = Pt(12)
             progress_store[task_id] = int(((i + 1) / total) * 100)
-            time.sleep(1) # تأخير بسيط لتجنب الحظر
         prs.save(output_path)
         progress_store[task_id] = 100
     except Exception:

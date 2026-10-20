@@ -36,7 +36,7 @@ os.makedirs(app.config['OUTPUT_FOLDER'], exist_ok=True)
 os.makedirs(app.config['FONT_FOLDER'], exist_ok=True)
 
 # ===== تحميل خط Amiri =====
-FONT_PATH = os.path.join(app.config['FONT_FOLDER'], 'Amiri-Regular.ttf')
+FONT_PATH = os.path.join(BASE_DIR, 'fonts', 'Amiri-Regular.ttf')
 if not os.path.exists(FONT_PATH) or os.path.getsize(FONT_PATH) < 10000:
     try:
         urllib.request.urlretrieve(

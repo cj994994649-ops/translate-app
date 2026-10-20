@@ -148,7 +148,97 @@ def translate_pdf(input_path, output_path, task_id):
 
 HTML_PAGE = """<!DOCTYPE html><html dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>الريان للترجمة</title><link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet"><style>* { margin: 0; padding: 0; box-sizing: border-box; } body { font-family: 'Tajawal', sans-serif; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px; } .container { background: rgba(255,255,255,0.95); border-radius: 24px; padding: 50px 40px; max-width: 480px; width: 100%; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.4); border: 1px solid rgba(255,215,0,0.3); } .logo { font-size: 42px; font-weight: 700; color: #1a1a2e; margin-bottom: 10px; } .logo span { color: #d4af37; } .subtitle { font-size: 16px; color: #666; margin-bottom: 40px; } .upload-area { border: 2px dashed #d4af37; border-radius: 16px; padding: 40px 20px; margin-bottom: 30px; cursor: pointer; background: #fafafa; transition: 0.3s; } .upload-area:hover { background: #fff8e7; } .icon { font-size: 48px; margin-bottom: 10px; } .upload-btn { background: linear-gradient(135deg, #d4af37 0%, #b8960c 100%); color: white; padding: 16px 40px; border: none; border-radius: 12px; font-size: 18px; font-weight: 700; cursor: pointer; width: 100%; } .upload-btn:disabled { opacity: 0.5; cursor: not-allowed; } #loader { display: none; margin-top: 20px; color: #d4af37; font-size: 18px; font-weight: 700; }</style></head><body><div class="container"><div class="logo">الريان <span>للترجمة</span></div><p class="subtitle">جسرك نحو ملفات دقيقة ومحتوى احترافي</p><form id="uploadForm" action="/upload" method="post" enctype="multipart/form-data"><input type="file" name="file" id="fileInput" accept=".pptx,.pdf" required style="display:none;"><div class="upload-area" onclick="document.getElementById('fileInput').click();"><div class="icon">📄</div><p id="fileName">اسحب ملف PPTX أو PDF هنا أو انقر للتحميل</p></div><button type="submit" class="upload-btn" id="submitBtn" disabled>ابدأ الترجمة</button><div id="loader">⏳ جاري الترجمة... يرجى الانتظار</div></form></div><script>document.getElementById('fileInput').addEventListener('change', function() { if (this.files.length > 0) { document.getElementById('fileName').innerText = this.files[0].name; document.getElementById('submitBtn').disabled = false; } }); document.getElementById('uploadForm').onsubmit = function() { document.getElementById('loader').style.display = 'block'; document.getElementById('submitBtn').disabled = true; };</script></body></html>"""
 
-PROGRESS_PAGE = """<!DOCTYPE html><html dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>جاري الترجمة...</title><link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet"><style>body { font-family: 'Tajawal', sans-serif; background: #1a1a2e; color: #fff; display: flex; justify-content: center; align-items: center; min-height: 100vh; text-align: center; padding: 20px; } .container { background: rgba(255,255,255,0.1); padding: 50px 30px; border-radius: 24px; box-shadow: 0 20px 60px rgba(0,0,0,0.4); border: 1px solid #d4af37; max-width: 400px; width: 100%; } h1 { color: #d4af37; margin-bottom: 30px; font-size: 28px; } .progress-bar-container { width: 100%; background-color: #16213e; border-radius: 10px; overflow: hidden; margin-bottom: 20px; height: 30px; } .progress-bar { height: 100%; background: linear-gradient(90deg, #d4af37, #f1c40f); width: 0%; transition: width 0.5s ease; } .percentage { font-size: 36px; font-weight: bold; color: #d4af37; } .error { color: #e74c3c; font-size: 18px; margin-top: 20px; }</style></head><body><div class="container"><h1>⏳ جاري ترجمة الملف</h1><div class="progress-bar-container"><div class="progress-bar" id="progressBar"></div></div><div class="percentage" id="percentage">0%</div><div class="error" id="errorBox" style="display:none;">❌ حدث خطأ في الترجمة</div></div><script>function updateProgress() { fetch('/progress/{{ task_id }}').then(r => r.json()).then(data => { if (data.progress === -1) { document.getElementById('errorBox').style.display = 'block'; return; } document.getElementById('progressBar').style.width = data.progress + '%'; document.getElementById('percentage').innerText = data.progress + '%'; if (data.progress >= 100) { window.location.href = "/download/{{ filename }}"; } else { setTimeout(updateProgress, 1000); } }).catch(() => setTimeout(updateProgress, 2000)); } updateProgress();</script></body></html>"""
+PROGRESS_PAGE = """<!DOCTYPE html>
+<html dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>جاري الترجمة...</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet">
+<style>
+    body { font-family: 'Tajawal', sans-serif; background: #1a1a2e; color: #fff; display: flex; justify-content: center; align-items: center; min-height: 100vh; text-align: center; padding: 20px; }
+    .container { background: rgba(255,255,255,0.1); padding: 40px 30px; border-radius: 24px; box-shadow: 0 20px 60px rgba(0,0,0,0.4); border: 1px solid #d4af37; max-width: 450px; width: 100%; }
+    h1 { color: #d4af37; margin-bottom: 20px; font-size: 24px; }
+    .progress-bar-container { width: 100%; background-color: #16213e; border-radius: 10px; overflow: hidden; margin-bottom: 15px; height: 25px; }
+    .progress-bar { height: 100%; background: linear-gradient(90deg, #d4af37, #f1c40f); width: 0%; transition: width 0.5s ease; }
+    .percentage { font-size: 32px; font-weight: bold; color: #d4af37; margin-bottom: 20px; }
+    .error { color: #e74c3c; font-size: 18px; margin-top: 20px; }
+    
+    /* تنسيق رسالة الدعاء */
+    .dua-container {
+        display: none; /* مخفي في البداية */
+        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+        padding: 20px;
+        border-radius: 15px;
+        border: 2px solid #f1c40f;
+        margin-top: 20px;
+        animation: fadeIn 1s ease-in-out;
+    }
+    .dua-text {
+        font-size: 18px;
+        line-height: 1.8;
+        color: #fff;
+        font-weight: bold;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+</style>
+</head>
+<body>
+    <div class="container">
+        <h1 id="title">⏳ جاري ترجمة الملف</h1>
+        <div class="progress-bar-container">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+        <div class="percentage" id="percentage">0%</div>
+        
+        <!-- رسالة الدعاء -->
+        <div class="dua-container" id="duaBox">
+            <div class="dua-text">
+                🤲 اللهم احفظ أيمن بعينك التي لا تنام، وارزقه الصحة والعافية وسعة الرزق، ووفقه لما تحب وترضى، واجعل ختام أمره خيرًا. آمين.
+            </div>
+        </div>
+        
+        <div class="error" id="errorBox" style="display:none;">❌ حدث خطأ في الترجمة</div>
+    </div>
+    <script>
+        let downloadStarted = false;
+        function updateProgress() {
+            fetch('/progress/{{ task_id }}')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.progress === -1) {
+                        document.getElementById('errorBox').style.display = 'block';
+                        document.getElementById('title').innerText = "❌ فشل";
+                        return;
+                    }
+                    
+                    document.getElementById('progressBar').style.width = data.progress + '%';
+                    document.getElementById('percentage').innerText = data.progress + '%';
+                    
+                    if (data.progress >= 100 && !downloadStarted) {
+                        downloadStarted = true;
+                        document.getElementById('title').innerText = "✅ اكتملت الترجمة بنجاح";
+                        document.getElementById('duaBox').style.display = 'block'; // إظهار الدعاء
+                        
+                        // الانتظار 5 ثوانٍ لقراءة الدعاء ثم التحميل
+                        setTimeout(() => {
+                            window.location.href = "/download/{{ filename }}";
+                        }, 5000); 
+                        
+                    } else if (data.progress < 100) {
+                        setTimeout(updateProgress, 1000);
+                    }
+                })
+                .catch(() => setTimeout(updateProgress, 2000));
+        }
+        updateProgress();
+    </script>
+</body>
+</html>"""
 
 STATS_PAGE = """<!DOCTYPE html><html dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>الإحصائيات</title><link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet"><style>body { font-family: 'Tajawal', sans-serif; background: #1a1a2e; color: #fff; padding: 30px; } .container { max-width: 800px; margin: 0 auto; } h1 { color: #d4af37; text-align: center; margin-bottom: 30px; } .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; } .card { background: rgba(255,255,255,0.1); padding: 30px; border-radius: 16px; text-align: center; border: 1px solid #d4af37; } .card .num { font-size: 42px; font-weight: bold; color: #d4af37; } .card .label { font-size: 16px; color: #ccc; margin-top: 10px; } .history { background: rgba(255,255,255,0.05); border-radius: 16px; padding: 20px; } .history h2 { color: #d4af37; margin-bottom: 15px; } .history-item { padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 14px; } .history-item:last-child { border-bottom: none; }</style></head><body><div class="container"><h1>📊 إحصائيات التطبيق</h1><div class="cards"><div class="card"><div class="num">{{ stats.visitors }}</div><div class="label">👁️ الزوار</div></div><div class="card"><div class="num">{{ stats.translated_files }}</div><div class="label">📄 ملفات مترجمة</div></div><div class="card"><div class="num">{{ stats.downloads }}</div><div class="label">⬇️ تحميلات</div></div></div><div class="history"><h2>📜 آخر الأنشطة</h2>{% for h in stats.history[-30:]|reverse %}<div class="history-item">{{ h.time }} — {{ h.action }} {{ h.file }}</div>{% endfor %}</div></div></body></html>"""
 
